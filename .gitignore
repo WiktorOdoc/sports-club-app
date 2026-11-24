@@ -1,0 +1,6 @@
+.vs/
+bin/
+obj/
+/SportsClubApp/*.db*
+/SportsClubApp/DataFiles/*
+*.csproj.user

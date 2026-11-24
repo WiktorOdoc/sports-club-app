@@ -1,0 +1,199 @@
+﻿@page "/teams"
+@inject ITeamRepository Repository
+
+<PageTitle>Drużyny</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Drużyny</h1>
+    <a href="/" class="btn btn-secondary">
+        Powrót na stronę główną
+    </a>
+</div>
+
+<h3>@(isEditing ? "Edytuj drużynę" : "Dodaj nową drużynę")</h3>
+
+<EditForm Model="newTeam" OnValidSubmit="SaveTeam">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">Nazwa drużyny</label>
+        <InputText class="form-control"
+                   @bind-Value="newTeam.Name" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Miasto</label>
+        <InputText class="form-control"
+                   @bind-Value="newTeam.City" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Liga</label>
+        <InputText class="form-control"
+                   @bind-Value="newTeam.League" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        @(isEditing ? "Zapisz zmiany" : "Dodaj drużynę")
+    </button>
+
+    @if (isEditing)
+    {
+        <button type="button"
+                class="btn btn-secondary ms-2"
+                @onclick="CancelEdit">
+            Anuluj
+        </button>
+    }
+</EditForm>
+
+<hr />
+
+<h3>Lista drużyn</h3>
+
+@if (teams == null)
+{
+    <p>Ładowanie danych...</p>
+}
+else if (teams.Count == 0)
+{
+    <p>Brak drużyn w bazie danych.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nazwa</th>
+                <th>Miasto</th>
+                <th>Liga</th>
+                <th>Zawodnicy</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var team in teams)
+            {
+                <tr>
+                    <td>
+                        <a href="@($"/teams/{team.Id}")">
+                            @team.Name
+                        </a>
+                    </td>
+                    <td>
+                        <a href="@($"/teams/{team.Id}")">
+                            @team.City
+                        </a>
+                    </td>
+                    <td>@team.League</td>
+                    <td>@(team.Riders?.Count ?? 0)</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm"
+                                @onclick="() => EditTeam(team)">
+                            Edytuj
+                        </button>
+
+                        @if (teamIdToDelete == team.Id)
+                        {
+                            <span class="ms-2">Usunąć?</span>
+
+                            <button class="btn btn-danger btn-sm ms-1"
+                                    @onclick="() => ConfirmDelete(team.Id)">
+                                Tak
+                            </button>
+
+                            <button class="btn btn-secondary btn-sm ms-1"
+                                    @onclick="CancelDelete">
+                                Nie
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-danger btn-sm ms-1"
+                                    @onclick="() => AskDelete(team.Id)">
+                                Usuń
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Team>? teams;
+    private Team newTeam = new();
+    private bool isEditing = false;
+    private int? teamIdToDelete = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTeams();
+    }
+
+    private async Task LoadTeams()
+    {
+        teams = await Repository.GetAllAsync();
+    }
+
+    private async Task SaveTeam()
+    {
+        if (isEditing)
+        {
+            await Repository.UpdateAsync(newTeam);
+        }
+        else
+        {
+            await Repository.AddAsync(newTeam);
+        }
+
+        newTeam = new Team();
+        isEditing = false;
+        await LoadTeams();
+    }
+
+    private void EditTeam(Team team)
+    {
+        newTeam = new Team
+        {
+            Id = team.Id,
+            Name = team.Name,
+            City = team.City,
+            League = team.League
+        };
+
+        isEditing = true;
+    }
+
+    private void CancelEdit()
+    {
+        newTeam = new Team();
+        isEditing = false;
+    }
+
+    private void AskDelete(int id)
+    {
+        teamIdToDelete = id;
+    }
+
+    private async Task ConfirmDelete(int id)
+    {
+        await Repository.DeleteAsync(id);
+        teamIdToDelete = null;
+
+        if (isEditing && newTeam.Id == id)
+        {
+            newTeam = new Team();
+            isEditing = false;
+        }
+
+        await LoadTeams();
+    }
+
+    private void CancelDelete()
+    {
+        teamIdToDelete = null;
+    }
+}

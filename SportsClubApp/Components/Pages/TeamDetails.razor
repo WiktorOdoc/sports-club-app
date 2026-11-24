@@ -1,0 +1,156 @@
+﻿@page "/teams/{Id:int}"
+@inject ITeamRepository TeamRepository
+@inject IRiderRepository RiderRepository
+
+<PageTitle>Szczegóły drużyny</PageTitle>
+
+@if (team == null)
+{
+    <p>Ładowanie danych...</p>
+}
+else
+{
+    <h1>@team.Name</h1>
+
+    <p><strong>Miasto:</strong> @team.City</p>
+    <p><strong>Liga:</strong> @team.League</p>
+
+    <hr />
+
+    <h3>Zawodnicy drużyny</h3>
+
+    @if (teamRiders.Count == 0)
+    {
+        <p>Ta drużyna nie ma jeszcze przypisanych zawodników.</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Imię</th>
+                    <th>Nazwisko</th>
+                    <th>Rok urodzenia</th>
+                    <th>Numer startowy</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rider in teamRiders)
+                {
+                    <tr>
+                        <td>@rider.FirstName</td>
+                        <td>@rider.LastName</td>
+                        <td>@rider.BirthYear</td>
+                        <td>@rider.RacingNumber</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm"
+                                    @onclick="() => RemoveRider(rider)">
+                                Usuń z listy
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <hr />
+
+    <h3>Dodaj zawodnika do drużyny</h3>
+
+    @if (availableRiders.Count == 0)
+    {
+        <p>Brak zawodników, których można przypisać.</p>
+    }
+    else
+    {
+        <div class="mb-3">
+            <label class="form-label">Wybierz zawodnika</label>
+
+            <select class="form-select" @bind="selectedRiderId">
+                <option value="0">-- Wybierz zawodnika --</option>
+
+                @foreach (var rider in availableRiders)
+                {
+                    <option value="@rider.Id">
+                        @rider.FirstName @rider.LastName
+                        (nr @rider.RacingNumber)
+                    </option>
+                }
+            </select>
+        </div>
+
+        <button class="btn btn-primary"
+                @onclick="AddRider"
+                disabled="@(selectedRiderId == 0)">
+            Przypisz zawodnika
+        </button>
+    }
+}
+
+<div class="mt-4">
+    <a href="/teams" class="btn btn-secondary">
+        Powrót do listy drużyn
+    </a>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Team? team;
+    private List<Rider> allRiders = new();
+    private List<Rider> teamRiders = new();
+    private List<Rider> availableRiders = new();
+    private int selectedRiderId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        team = await TeamRepository.GetByIdAsync(Id);
+
+        if (team == null)
+            return;
+
+        allRiders = await RiderRepository.GetAllAsync();
+
+        teamRiders = allRiders
+            .Where(r => r.TeamId == Id)
+            .ToList();
+
+        availableRiders = allRiders
+            .Where(r => r.TeamId == null)
+            .ToList();
+    }
+
+    private async Task AddRider()
+    {
+        var rider = allRiders.FirstOrDefault(
+            r => r.Id == selectedRiderId);
+
+        if (rider == null)
+            return;
+
+        rider.TeamId = Id;
+
+        await RiderRepository.UpdateAsync(rider);
+
+        selectedRiderId = 0;
+
+        await LoadData();
+    }
+
+    private async Task RemoveRider(Rider rider)
+    {
+        rider.TeamId = null;
+
+        await RiderRepository.UpdateAsync(rider);
+
+        await LoadData();
+    }
+}
